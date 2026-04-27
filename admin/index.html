@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <section class="demo-panel">
+        <div>
+            <h1>Admin Area</h1>
+            <p id="welcomeText">Please sign in to continue.</p>
+        </div>
+        <div class="route-panel">
+            <p class="route"> Selected Page: <span id="selectedRoute"></span></p>
+        </div>
+    </section>
+    <main id="adminContent" class="hidden"></main>
+
+    <div id="loginOverlay" class="overlay">
+        <form id="loginForm" class="popup" autocomplete="off">
+            <h2>Sign In</h2>
+            <div class="field">
+                <label for="numberInput">Number</label>
+                <input id="numberInput" type="text" inputmode="numeric" placeholder="Enter number">
+            </div>
+
+            <div class="field">
+                <label for="passwordInput">Password</label>
+                <input id="passwordInput" type="password" placeholder="Enter password">
+            </div>
+
+            <button class="login-btn" type="submit">Login</button>
+            <p id="msg" class="msg"></p>
+        </form>
+    </div>
+
+    <script src="./script.js"></script>
+</body>
+</html>
