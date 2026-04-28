@@ -5,23 +5,99 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
 
 <body>
     <main class="admin-layout">
         <aside>
             <div class="left">
-                <button class="active">Home</button>
-                <button>Layers</button>
+                <button class="active" data-view-btn="home" type="button">Home</button>
+                <button data-view-btn="section" type="button">Section</button>
+                <button data-view-btn="edit" type="button">Content</button>
+                <button data-view-btn="layers" type="button">Layers</button>
             </div>
             <div class="right">
-                <div class="connectWithRoot">
-                    <button class="cta">Connect Root</button>
+                <div id="homePanel">
+                    <div class="connectWithRoot" id="connectWithRoot">
+                        <button id="connectRootBtn" class="cta" type="button">Connect Root</button>
+                        <button id="disconnectRootBtn" class="cta danger hidden" type="button">Disconnect Root</button>
+                    </div>
+                    <div class="pathListing" id="pathListing">
+                        <p>Connect root folder to manage routes.</p>
+                    </div>
+                    <div class="crud-grid mt-3">
+                        <label>Body Background Color (default null)</label>
+                        <input id="pageBodyBgInput" type="color" value="#ffffff" class="h-8 !p-1">
+                        <label>Meta Title</label>
+                        <input id="pageMetaTitleInput" type="text" placeholder="Enter page title">
+                        <label>Meta Description</label>
+                        <textarea id="pageMetaDescriptionInput" rows="3" placeholder="Enter meta description"></textarea>
+                    </div>
+                </div>
+                <div id="sectionPanel">
+                    <div class="crud-grid">
+                        <div class="crud-actions">
+                            <button id="addSectionBtn" class="cta fill" type="button">Add Section</button>
+                        </div>
+                        <label class="flex items-center justify-between gap-3 border border-slate-700 rounded-lg px-3 py-2 bg-slate-950/60"
+                            for="lockSectionMovementToggle">
+                            <span class="text-slate-300 text-xs">Lock Selected Section Movement</span>
+                            <span class="relative inline-flex h-6 w-11 items-center">
+                                <input id="lockSectionMovementToggle" type="checkbox" class="peer sr-only">
+                                <span
+                                    class="h-6 w-11 rounded-full border border-slate-600 bg-slate-700 transition-colors peer-checked:bg-blue-600 peer-checked:border-blue-500 peer-disabled:opacity-50"></span>
+                                <span
+                                    class="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-slate-100 transition-transform peer-checked:translate-x-5"></span>
+                            </span>
+                        </label>
+                        <div>
+                            <label>Section Internal Grid (columns / rows)</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <input id="sectionInnerColsInput" type="number" min="1" value="12">
+                                <input id="sectionInnerRowsInput" type="number" min="1" value="6">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <label>Padding (px)</label>
+                            <input id="sectionPaddingInput" type="number" min="0" value="0">
+
+                            <label>Border Radius (px)</label>
+                            <input id="sectionRadiusInput" type="number" min="0" value="0">
+
+                            <label>Background Color</label>
+                            <input id="sectionBgColorInput" type="color" value="#dbeafe" class="h-8 !p-1">
+
+                        </div>
+                        <div class="crud-actions">
+                            <button id="deleteSectionBtn" class="cta danger" type="button">Delete Selected
+                                Section</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="editPanel">
+                    <div class="crud-grid">
+                        <label>Add Elements</label>
+                        <div class="crud-actions">
+                            <button id="addBlockBtn" class="cta" type="button">Add Block</button>
+                            <button id="addTextBtn" class="cta" type="button">Add Text</button>
+                            <button id="addImageBtn" class="cta" type="button">Add Image</button>
+                        </div>
+
+                        <div class="crud-actions">
+                            <button id="deleteElementBtn" class="cta danger" type="button">Delete Selected</button>
+                            <button id="saveCanvasBtn" class="cta" type="button">Save Changes</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="layersPanel">
+                    layers
                 </div>
             </div>
         </aside>
         <section>
-            <div class="canvas"></div>
+            <div class="canvas" id="adminCanvas"></div>
         </section>
     </main>
 </body>
