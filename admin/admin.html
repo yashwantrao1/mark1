@@ -30,9 +30,9 @@
                         <label>Body Background Color (default null)</label>
                         <input id="pageBodyBgInput" type="color" value="#ffffff" class="h-8 !p-1">
                         <label>Meta Title</label>
-                        <input id="pageMetaTitleInput" type="text" placeholder="Enter page title">
+                        <input id="pageMetaTitleInput" type="text" class="text-sm" placeholder="Enter page title">
                         <label>Meta Description</label>
-                        <textarea id="pageMetaDescriptionInput" rows="3" placeholder="Enter meta description"></textarea>
+                        <textarea id="pageMetaDescriptionInput" rows="3" class="!bg-[#0b1220] border border-[#374151] p-1 !rounded-md text-sm" placeholder="Enter meta description"></textarea>
                     </div>
                 </div>
                 <div id="sectionPanel">
@@ -81,8 +81,90 @@
                         <label>Add Elements</label>
                         <div class="crud-actions">
                             <button id="addBlockBtn" class="cta" type="button">Add Block</button>
-                            <button id="addTextBtn" class="cta" type="button">Add Text</button>
-                            <button id="addImageBtn" class="cta" type="button">Add Image</button>
+                            <button id="addTextBtn" class="cta hidden" type="button">Add Text</button>
+                            <button id="addImageBtn" class="cta hidden" type="button">Add Image</button>
+                        </div>
+
+                        <div id="blockStylePanel" class="crud-grid hidden">
+                            <label>Block Style</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <label>Padding (px)</label>
+                                <input id="blockPaddingInput" type="number" min="0" value="0">
+                                <label>Border Radius (px)</label>
+                                <input id="blockRadiusInput" type="number" min="0" value="0">
+                                <label>Border Width (px)</label>
+                                <input id="blockBorderWidthInput" type="number" min="0" value="0">
+                                <label>Border Color</label>
+                                <input id="blockBorderColorInput" type="color" value="#93c5fd" class="h-8 !p-1">
+                                <label>Background</label>
+                                <input id="blockBgColorInput" type="color" value="#dbeafe" class="h-8 !p-1">
+                            </div>
+                        </div>
+
+                        <div id="blockContentPanel" class="crud-grid hidden">
+                            <label>Add Content To Selected Block</label>
+                            <div class="crud-actions">
+                                <button id="addBlockImageBtn" class="cta" type="button">Image</button>
+                                <button id="addBlockParagraphBtn" class="cta" type="button">Paragraph</button>
+                                <button id="addBlockHeadingBtn" class="cta" type="button">Heading</button>
+                                <button id="addBlockHtmlBtn" class="cta" type="button">HTML</button>
+                                <button id="addBlockTableBtn" class="cta" type="button">Table</button>
+                                <button id="addBlockListBtn" class="cta" type="button">List</button>
+                            </div>
+                        </div>
+
+                        <div id="imageStylePanel" class="crud-grid hidden">
+                            <label>Image Settings</label>
+                            <div class="crud-actions">
+                                <button id="imageFitCoverBtn" class="cta" type="button">Cover</button>
+                                <button id="imageFitContainBtn" class="cta" type="button">Contain</button>
+                            </div>
+                            <label>Upload Image</label>
+                            <div class="crud-actions">
+                                <button id="uploadBlockImageBtn" class="cta" type="button">Upload</button>
+                                <input id="uploadBlockImageInput" type="file" accept="image/*" class="hidden">
+                            </div>
+                            <label>Object Position</label>
+                            <div class="crud-actions">
+                                <button id="imagePosUpBtn" class="cta" type="button">↑</button>
+                                <button id="imagePosLeftBtn" class="cta" type="button">←</button>
+                                <button id="imagePosCenterBtn" class="cta" type="button">•</button>
+                                <button id="imagePosRightBtn" class="cta" type="button">→</button>
+                                <button id="imagePosDownBtn" class="cta" type="button">↓</button>
+                            </div>
+                        </div>
+
+                        <div id="textStylePanel" class="crud-grid hidden">
+                            <label>Text Settings</label>
+                            <div class="crud-actions">
+                                <button id="textBoldBtn" class="cta bold" type="button">B</button>
+                                <button id="textItalicBtn" class="cta italic" type="button">I</button>
+                                <button id="textUnderlineBtn" class="cta underline" type="button">U</button>
+                                <div class="w-[2px] mx-2 h-full bg-white/20"></div>
+                                <button id="textAlignLeftBtn" class="cta h-[34px] w-[34px] flex items-center justify-center relative p-0" type="button"><img class="h-[24px] w-[24px] invert opacity-80" src="/assets/left.svg" alt=""></button>
+                                <button id="textAlignCenterBtn" class="cta h-[34px] w-[34px] flex items-center justify-center relative p-0" type="button"><img class="h-[24px] w-[24px] invert opacity-80" src="/assets/center.svg" alt=""></button>
+                                <button id="textAlignRightBtn" class="cta h-[34px] w-[34px] flex items-center justify-center relative p-0" type="button"><img class="h-[24px] w-[24px] invert opacity-80" src="/assets/right.svg" alt=""></button>
+                                <button id="textAlignJustifyBtn" class="cta h-[34px] w-[34px] flex items-center justify-center relative p-0" type="button"><img class="h-[24px] w-[24px] invert opacity-80" src="/assets/justify.svg" alt=""></button>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <label>Font Size</label>
+                                <div class="flex items-center gap-2">
+                                    <input id="textSizeInput" type="number" min="1" value="16">
+                                    <label class="hidden">Font Unit</label>
+                                    <select id="textSizeUnitInput">
+                                        <option value="px">px</option>
+                                        <option value="vw">vw</option>
+                                    </select>
+                                </div>
+                                <label>Min Font Size (px)</label>
+                                <input id="textMinSizeInput" type="number" min="1" value="12">
+                                <label>Text Color</label>
+                                <input id="textColorInput" type="color" value="#0f172a" class="h-8 !p-1">
+                                <label>Line Height (%)</label>
+                                <input id="textLineHeightInput" type="number" min="50" value="120">
+                                <label>Paragraph Spacing (%)</label>
+                                <input id="textParagraphSpacingInput" type="number" min="0" value="0">
+                            </div>
                         </div>
 
                         <div class="crud-actions">

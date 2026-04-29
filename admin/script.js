@@ -9,6 +9,7 @@ const ROOT_HANDLE_DB = "admin-root-handle-db";
 const ROOT_HANDLE_STORE = "handles";
 const ROOT_HANDLE_KEY = "root";
 const LAST_LOADED_ROUTE_KEY = "adminLastLoadedRoute";
+const PUBLIC_UPLOADS_DIR = "public";
 
 const loginOverlay = document.getElementById("loginOverlay");
 const loginForm = document.getElementById("loginForm");
@@ -34,6 +35,7 @@ let activeSectionElement = null;
 let selectedOverlayElement = null;
 let previousSelectedBackgroundImage = "";
 let previousSelectedBackgroundSize = "";
+const pendingImageUploads = new Map();
 
 function updateWorkspaceButtonsState() {
     const hasLoadedFile = currentLoadedRoutePath !== "";
@@ -186,6 +188,18 @@ function getElementGridContainer(element) {
     return parent;
 }
 
+function shouldEnableResizeHandle(element) {
+    if (!(element instanceof HTMLElement)) return false;
+    const root = getEditableRoot();
+    if (!root) return false;
+    if (element.tagName.toLowerCase() === "section") return true;
+    const parent = element.parentElement;
+    if (!parent) return false;
+    if (parent === root && element.style.gridColumn) return true;
+    if (parent.tagName.toLowerCase() === "section" && element.style.gridColumn) return true;
+    return false;
+}
+
 function resolveInsertionContainer(tagName) {
     const root = getEditableRoot();
     if (!root || !(root instanceof HTMLElement)) return null;
@@ -197,12 +211,140 @@ function resolveInsertionContainer(tagName) {
 function updateEditButtonsState() {
     const hasLoadedFile = currentLoadedRoutePath !== "";
     const hasSelectedSection = !!getSelectedSectionElement();
+    const hasSelectedBlock = !!getSelectedBlockElement();
     const addBlockBtn = adminContent?.querySelector("#addBlockBtn");
-    const addTextBtn = adminContent?.querySelector("#addTextBtn");
-    const addImageBtn = adminContent?.querySelector("#addImageBtn");
+    const blockStylePanel = adminContent?.querySelector("#blockStylePanel");
+    const blockContentPanel = adminContent?.querySelector("#blockContentPanel");
+    const imageStylePanel = adminContent?.querySelector("#imageStylePanel");
+    const textStylePanel = adminContent?.querySelector("#textStylePanel");
     if (addBlockBtn) addBlockBtn.disabled = !hasLoadedFile || !hasSelectedSection;
-    if (addTextBtn) addTextBtn.disabled = !hasLoadedFile || !hasSelectedSection;
-    if (addImageBtn) addImageBtn.disabled = !hasLoadedFile || !hasSelectedSection;
+    if (blockStylePanel) {
+        const show = hasSelectedBlock;
+        blockStylePanel.classList.toggle("hidden", !show);
+        blockStylePanel.style.display = show ? "grid" : "none";
+    }
+    if (blockContentPanel) {
+        const show = hasSelectedBlock;
+        blockContentPanel.classList.toggle("hidden", !show);
+        blockContentPanel.style.display = show ? "grid" : "none";
+    }
+    if (imageStylePanel) {
+        const show = isSelectedImageElement();
+        imageStylePanel.classList.toggle("hidden", !show);
+        imageStylePanel.style.display = show ? "grid" : "none";
+    }
+    if (textStylePanel) {
+        const show = isSelectedTextElement();
+        textStylePanel.classList.toggle("hidden", !show);
+        textStylePanel.style.display = show ? "grid" : "none";
+    }
+}
+
+function getSelectedBlockElement() {
+    if (!(selectedCanvasElement instanceof HTMLElement)) return null;
+    if (selectedCanvasElement.tagName.toLowerCase() !== "div") return null;
+    if (selectedCanvasElement.tagName.toLowerCase() === "section") return null;
+    return selectedCanvasElement;
+}
+
+function isSelectedImageElement() {
+    return selectedCanvasElement instanceof HTMLElement && selectedCanvasElement.tagName.toLowerCase() === "img";
+}
+
+function isSelectedTextElement() {
+    if (!(selectedCanvasElement instanceof HTMLElement)) return false;
+    const tag = selectedCanvasElement.tagName.toLowerCase();
+    return tag === "p" || tag === "h1" || tag === "h2" || tag === "h3" || tag === "h4" || tag === "h5" || tag === "h6";
+}
+
+function getSelectedTextElement() {
+    return isSelectedTextElement() ? selectedCanvasElement : null;
+}
+
+function syncBlockControlsFromSelection() {
+    const block = getSelectedBlockElement();
+    const paddingInput = adminContent?.querySelector("#blockPaddingInput");
+    const radiusInput = adminContent?.querySelector("#blockRadiusInput");
+    const borderWidthInput = adminContent?.querySelector("#blockBorderWidthInput");
+    const borderColorInput = adminContent?.querySelector("#blockBorderColorInput");
+    const bgColorInput = adminContent?.querySelector("#blockBgColorInput");
+    if (!paddingInput || !radiusInput || !borderWidthInput || !borderColorInput || !bgColorInput) return;
+    if (!block) return;
+    paddingInput.value = String(parseInt(block.style.padding || "0", 10) || 0);
+    radiusInput.value = String(parseInt(block.style.borderRadius || "0", 10) || 0);
+    borderWidthInput.value = String(parseInt(block.style.borderWidth || "0", 10) || 0);
+    borderColorInput.value = cssColorToHex(block.style.borderColor || "#93c5fd");
+    bgColorInput.value = cssColorToHex(block.style.backgroundColor || block.style.background || "#dbeafe");
+}
+
+function applyBlockStyleFromControls() {
+    const block = getSelectedBlockElement();
+    if (!block) return;
+    const paddingInput = adminContent?.querySelector("#blockPaddingInput");
+    const radiusInput = adminContent?.querySelector("#blockRadiusInput");
+    const borderWidthInput = adminContent?.querySelector("#blockBorderWidthInput");
+    const borderColorInput = adminContent?.querySelector("#blockBorderColorInput");
+    const bgColorInput = adminContent?.querySelector("#blockBgColorInput");
+    if (!paddingInput || !radiusInput || !borderWidthInput || !borderColorInput || !bgColorInput) return;
+    const borderWidth = Math.max(0, Number(borderWidthInput.value || 0));
+    block.style.padding = `${Math.max(0, Number(paddingInput.value || 0))}px`;
+    block.style.borderRadius = `${Math.max(0, Number(radiusInput.value || 0))}px`;
+    block.style.borderStyle = borderWidth > 0 ? "solid" : "none";
+    block.style.borderWidth = `${borderWidth}px`;
+    block.style.borderColor = borderColorInput.value || "#93c5fd";
+    block.style.background = bgColorInput.value || "#dbeafe";
+}
+
+function syncTextControlsFromSelection() {
+    const textSizeUnitInput = adminContent?.querySelector("#textSizeUnitInput");
+    const textMinSizeInput = adminContent?.querySelector("#textMinSizeInput");
+    const textSizeInput = adminContent?.querySelector("#textSizeInput");
+    const textColorInput = adminContent?.querySelector("#textColorInput");
+    const textLineHeightInput = adminContent?.querySelector("#textLineHeightInput");
+    const textParagraphSpacingInput = adminContent?.querySelector("#textParagraphSpacingInput");
+    if (!textSizeInput || !textColorInput || !textSizeUnitInput || !textMinSizeInput || !textLineHeightInput || !textParagraphSpacingInput) return;
+    if (!isSelectedTextElement()) return;
+    const textElement = getSelectedTextElement();
+    if (!textElement) return;
+    const fontSize = textElement.style.fontSize || "";
+    const clampMatch = fontSize.match(/clamp\((\d+(?:\.\d+)?)px,\s*(\d+(?:\.\d+)?)(px|vw),/i);
+    if (clampMatch) {
+        textMinSizeInput.value = clampMatch[1];
+        textSizeInput.value = clampMatch[2];
+        textSizeUnitInput.value = clampMatch[3].toLowerCase();
+    } else {
+        const unit = fontSize.endsWith("vw") ? "vw" : "px";
+        textSizeUnitInput.value = unit;
+        textSizeInput.value = String(parseFloat(fontSize) || 16);
+        textMinSizeInput.value = "12";
+    }
+    textColorInput.value = cssColorToHex(textElement.style.color || "#0f172a");
+    textLineHeightInput.value = String(parseFloat(textElement.style.lineHeight) || 120);
+    textParagraphSpacingInput.value = String(parseFloat(textElement.style.marginBottom) || 0);
+}
+
+function applyTextStyleFromControls() {
+    const textElement = getSelectedTextElement();
+    if (!textElement) return;
+    const textSizeUnitInput = adminContent?.querySelector("#textSizeUnitInput");
+    const textMinSizeInput = adminContent?.querySelector("#textMinSizeInput");
+    const textSizeInput = adminContent?.querySelector("#textSizeInput");
+    const textColorInput = adminContent?.querySelector("#textColorInput");
+    const textLineHeightInput = adminContent?.querySelector("#textLineHeightInput");
+    const textParagraphSpacingInput = adminContent?.querySelector("#textParagraphSpacingInput");
+    if (!textSizeInput || !textColorInput || !textSizeUnitInput || !textMinSizeInput || !textLineHeightInput || !textParagraphSpacingInput) return;
+    const size = Math.max(1, Number(textSizeInput.value || 16));
+    const minSize = Math.max(1, Number(textMinSizeInput.value || 12));
+    const unit = textSizeUnitInput.value === "vw" ? "vw" : "px";
+    textElement.style.fontSize = `clamp(${minSize}px, ${size}${unit}, 999px)`;
+    textElement.style.color = textColorInput.value || "#0f172a";
+    textElement.style.lineHeight = `${Math.max(50, Number(textLineHeightInput.value || 120))}%`;
+    textElement.style.marginBottom = `${Math.max(0, Number(textParagraphSpacingInput.value || 0))}%`;
+}
+
+function updateSelectedImageObjectPosition(x, y) {
+    if (!isSelectedImageElement()) return;
+    selectedCanvasElement.style.objectPosition = `${x}% ${y}%`;
 }
 
 function getPageSettingsControls() {
@@ -292,6 +434,8 @@ function clearCanvasSelection() {
     selectedOverlayElement = null;
     previousSelectedBackgroundImage = "";
     previousSelectedBackgroundSize = "";
+    syncBlockControlsFromSelection();
+    syncTextControlsFromSelection();
     updateEditButtonsState();
 }
 
@@ -300,7 +444,7 @@ function setCanvasSelection(element) {
     if (!element || !(element instanceof HTMLElement)) return;
     selectedCanvasElement = element;
     selectedCanvasElement.style.outline = "2px solid #2563eb";
-    ensureResizeHandle(selectedCanvasElement);
+    if (shouldEnableResizeHandle(selectedCanvasElement)) ensureResizeHandle(selectedCanvasElement);
     const pickedSection = selectedCanvasElement.tagName.toLowerCase() === "section"
         ? selectedCanvasElement
         : selectedCanvasElement.closest("section");
@@ -308,7 +452,13 @@ function setCanvasSelection(element) {
     const overlayTarget = pickedSection || selectedCanvasElement;
     selectedOverlayElement = overlayTarget;
     applySelectionGridOverlay(overlayTarget);
+    if (isSelectedTextElement()) {
+        selectedCanvasElement.setAttribute("contenteditable", "true");
+        selectedCanvasElement.setAttribute("spellcheck", "false");
+    }
     syncSectionControlsFromSelection();
+    syncBlockControlsFromSelection();
+    syncTextControlsFromSelection();
     updateEditButtonsState();
 }
 
@@ -446,6 +596,7 @@ function bindElementDragAndResize(element) {
         if (isResize) return;
         if (event.button !== 0) return;
         setCanvasSelection(element);
+        if (isSelectedTextElement()) return;
 
         const { colWidth, rowHeight } = getGridMetrics(container);
         const initialCol = parseGridValue(element.style.gridColumn);
@@ -709,6 +860,7 @@ async function saveCanvasToCurrentFile() {
     }
     const root = getEditableRoot();
     if (!root) return;
+    await flushPendingImageUploads(root);
     const cleanRoot = root.cloneNode(true);
     if (cleanRoot instanceof HTMLElement) {
         stripEditorArtifacts(cleanRoot);
@@ -729,40 +881,51 @@ async function saveCanvasToCurrentFile() {
 
 function bindEditPanelControls() {
     const addBlockBtn = adminContent?.querySelector("#addBlockBtn");
-    const addTextBtn = adminContent?.querySelector("#addTextBtn");
-    const addImageBtn = adminContent?.querySelector("#addImageBtn");
     const deleteElementBtn = adminContent?.querySelector("#deleteElementBtn");
     const saveCanvasBtn = adminContent?.querySelector("#saveCanvasBtn");
+    const blockPaddingInput = adminContent?.querySelector("#blockPaddingInput");
+    const blockRadiusInput = adminContent?.querySelector("#blockRadiusInput");
+    const blockBorderWidthInput = adminContent?.querySelector("#blockBorderWidthInput");
+    const blockBorderColorInput = adminContent?.querySelector("#blockBorderColorInput");
+    const blockBgColorInput = adminContent?.querySelector("#blockBgColorInput");
+    const addBlockImageBtn = adminContent?.querySelector("#addBlockImageBtn");
+    const addBlockParagraphBtn = adminContent?.querySelector("#addBlockParagraphBtn");
+    const addBlockHeadingBtn = adminContent?.querySelector("#addBlockHeadingBtn");
+    const addBlockHtmlBtn = adminContent?.querySelector("#addBlockHtmlBtn");
+    const addBlockTableBtn = adminContent?.querySelector("#addBlockTableBtn");
+    const addBlockListBtn = adminContent?.querySelector("#addBlockListBtn");
+    const imageFitCoverBtn = adminContent?.querySelector("#imageFitCoverBtn");
+    const imageFitContainBtn = adminContent?.querySelector("#imageFitContainBtn");
+    const uploadBlockImageBtn = adminContent?.querySelector("#uploadBlockImageBtn");
+    const uploadBlockImageInput = adminContent?.querySelector("#uploadBlockImageInput");
+    const imagePosUpBtn = adminContent?.querySelector("#imagePosUpBtn");
+    const imagePosDownBtn = adminContent?.querySelector("#imagePosDownBtn");
+    const imagePosLeftBtn = adminContent?.querySelector("#imagePosLeftBtn");
+    const imagePosRightBtn = adminContent?.querySelector("#imagePosRightBtn");
+    const imagePosCenterBtn = adminContent?.querySelector("#imagePosCenterBtn");
+    const textBoldBtn = adminContent?.querySelector("#textBoldBtn");
+    const textItalicBtn = adminContent?.querySelector("#textItalicBtn");
+    const textUnderlineBtn = adminContent?.querySelector("#textUnderlineBtn");
+    const textAlignLeftBtn = adminContent?.querySelector("#textAlignLeftBtn");
+    const textAlignCenterBtn = adminContent?.querySelector("#textAlignCenterBtn");
+    const textAlignRightBtn = adminContent?.querySelector("#textAlignRightBtn");
+    const textAlignJustifyBtn = adminContent?.querySelector("#textAlignJustifyBtn");
+    const textSizeInput = adminContent?.querySelector("#textSizeInput");
+    const textSizeUnitInput = adminContent?.querySelector("#textSizeUnitInput");
+    const textMinSizeInput = adminContent?.querySelector("#textMinSizeInput");
+    const textColorInput = adminContent?.querySelector("#textColorInput");
+    const textLineHeightInput = adminContent?.querySelector("#textLineHeightInput");
+    const textParagraphSpacingInput = adminContent?.querySelector("#textParagraphSpacingInput");
 
     if (addBlockBtn) {
         addBlockBtn.onclick = () => {
             addElementToCanvas("div", (element) => {
-                element.textContent = "Block";
+                element.textContent = "";
+                element.dataset.blockContainer = "true";
                 element.style.background = "#dbeafe";
                 element.style.border = "1px solid #93c5fd";
                 element.style.padding = "8px";
-            });
-        };
-    }
-    if (addTextBtn) {
-        addTextBtn.onclick = () => {
-            addElementToCanvas("p", (element) => {
-                element.textContent = "Text";
-                element.style.margin = "0";
-                element.style.padding = "8px";
-            });
-        };
-    }
-    if (addImageBtn) {
-        addImageBtn.onclick = () => {
-            const url = window.prompt("Image URL");
-            if (!url) return;
-            addElementToCanvas("img", (element) => {
-                element.setAttribute("src", url);
-                element.setAttribute("alt", "Image");
-                element.style.width = "100%";
-                element.style.height = "100%";
-                element.style.objectFit = "cover";
+                element.style.overflow = "hidden";
             });
         };
     }
@@ -777,6 +940,165 @@ function bindEditPanelControls() {
     if (saveCanvasBtn) {
         saveCanvasBtn.onclick = saveCanvasToCurrentFile;
     }
+
+    [blockPaddingInput, blockRadiusInput, blockBorderWidthInput, blockBorderColorInput, blockBgColorInput]
+        .filter(Boolean)
+        .forEach((control) => {
+            control.addEventListener("input", applyBlockStyleFromControls);
+            control.addEventListener("change", applyBlockStyleFromControls);
+        });
+
+    const addNodeToBlock = (builder) => {
+        const block = getSelectedBlockElement();
+        if (!block) {
+            window.alert("Select a block first.");
+            return;
+        }
+        const node = builder();
+        if (!(node instanceof HTMLElement)) return;
+        node.dataset.editable = "true";
+        block.appendChild(node);
+        setCanvasSelection(node);
+    };
+
+    if (addBlockImageBtn) {
+        addBlockImageBtn.onclick = () => {
+            addNodeToBlock(() => {
+                const img = document.createElement("img");
+                img.src = "/assets/no-image.png";
+                img.alt = "Image";
+                img.style.width = "100%";
+                img.style.height = "100%";
+                img.style.objectFit = "cover";
+                img.style.objectPosition = "50% 50%";
+                img.style.display = "block";
+                return img;
+            });
+        };
+    }
+    if (addBlockParagraphBtn) {
+        addBlockParagraphBtn.onclick = () => {
+            addNodeToBlock(() => {
+                const p = document.createElement("p");
+                p.textContent = "Paragraph";
+                p.style.margin = "0";
+                p.style.padding = "8px 0";
+                p.setAttribute("contenteditable", "true");
+                p.setAttribute("spellcheck", "false");
+                return p;
+            });
+        };
+    }
+    if (addBlockHeadingBtn) {
+        addBlockHeadingBtn.onclick = () => {
+            addNodeToBlock(() => {
+                const h = document.createElement("h2");
+                h.textContent = "Heading";
+                h.style.margin = "0";
+                h.style.padding = "8px 0";
+                h.setAttribute("contenteditable", "true");
+                h.setAttribute("spellcheck", "false");
+                return h;
+            });
+        };
+    }
+    if (addBlockHtmlBtn) {
+        addBlockHtmlBtn.onclick = () => {
+            const html = window.prompt("Paste HTML", "<div>Custom HTML</div>");
+            if (!html) return;
+            const block = getSelectedBlockElement();
+            if (!block) return;
+            const wrapper = document.createElement("div");
+            wrapper.innerHTML = html;
+            [...wrapper.children].forEach((child) => {
+                if (child instanceof HTMLElement) child.dataset.editable = "true";
+            });
+            block.append(...wrapper.children);
+        };
+    }
+    if (addBlockTableBtn) {
+        addBlockTableBtn.onclick = () => {
+            addNodeToBlock(() => {
+                const table = document.createElement("table");
+                table.style.width = "100%";
+                table.style.borderCollapse = "collapse";
+                table.innerHTML = "<tr><th style=\"border:1px solid #94a3b8;padding:6px;\">A</th><th style=\"border:1px solid #94a3b8;padding:6px;\">B</th></tr><tr><td style=\"border:1px solid #94a3b8;padding:6px;\">1</td><td style=\"border:1px solid #94a3b8;padding:6px;\">2</td></tr>";
+                return table;
+            });
+        };
+    }
+    if (addBlockListBtn) {
+        addBlockListBtn.onclick = () => {
+            addNodeToBlock(() => {
+                const ul = document.createElement("ul");
+                ul.style.margin = "0";
+                ul.style.paddingLeft = "18px";
+                ul.innerHTML = "<li>List item 1</li><li>List item 2</li>";
+                return ul;
+            });
+        };
+    }
+
+    if (imageFitCoverBtn) imageFitCoverBtn.onclick = () => { if (isSelectedImageElement()) selectedCanvasElement.style.objectFit = "cover"; };
+    if (imageFitContainBtn) imageFitContainBtn.onclick = () => { if (isSelectedImageElement()) selectedCanvasElement.style.objectFit = "contain"; };
+    if (imagePosUpBtn) imagePosUpBtn.onclick = () => updateSelectedImageObjectPosition(50, 0);
+    if (imagePosDownBtn) imagePosDownBtn.onclick = () => updateSelectedImageObjectPosition(50, 100);
+    if (imagePosLeftBtn) imagePosLeftBtn.onclick = () => updateSelectedImageObjectPosition(0, 50);
+    if (imagePosRightBtn) imagePosRightBtn.onclick = () => updateSelectedImageObjectPosition(100, 50);
+    if (imagePosCenterBtn) imagePosCenterBtn.onclick = () => updateSelectedImageObjectPosition(50, 50);
+    if (uploadBlockImageBtn && uploadBlockImageInput) {
+        uploadBlockImageBtn.onclick = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            uploadBlockImageInput.click();
+        };
+        uploadBlockImageInput.addEventListener("change", async (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (!isSelectedImageElement()) return;
+            if (!connectedRootHandle) {
+                window.alert("Connect root folder first.");
+                return;
+            }
+            const [file] = uploadBlockImageInput.files || [];
+            if (!file) return;
+            const targetImage = selectedCanvasElement;
+            if (!(targetImage instanceof HTMLImageElement)) return;
+            try {
+                queuePendingImageUpload(file, targetImage);
+            } catch (error) {
+                const reason = error instanceof Error ? error.message : "";
+                window.alert(`Unable to save image in public folder.${reason ? ` ${reason}` : ""}`);
+            } finally {
+                uploadBlockImageInput.value = "";
+            }
+        });
+    }
+
+    if (textBoldBtn) textBoldBtn.onclick = () => {
+        const textElement = getSelectedTextElement();
+        if (!textElement) return;
+        textElement.style.fontWeight = textElement.style.fontWeight === "700" ? "400" : "700";
+    };
+    if (textItalicBtn) textItalicBtn.onclick = () => {
+        const textElement = getSelectedTextElement();
+        if (!textElement) return;
+        textElement.style.fontStyle = textElement.style.fontStyle === "italic" ? "normal" : "italic";
+    };
+    if (textUnderlineBtn) textUnderlineBtn.onclick = () => {
+        const textElement = getSelectedTextElement();
+        if (!textElement) return;
+        textElement.style.textDecoration = textElement.style.textDecoration === "underline" ? "none" : "underline";
+    };
+    if (textAlignLeftBtn) textAlignLeftBtn.onclick = () => { const textElement = getSelectedTextElement(); if (textElement) textElement.style.textAlign = "left"; };
+    if (textAlignCenterBtn) textAlignCenterBtn.onclick = () => { const textElement = getSelectedTextElement(); if (textElement) textElement.style.textAlign = "center"; };
+    if (textAlignRightBtn) textAlignRightBtn.onclick = () => { const textElement = getSelectedTextElement(); if (textElement) textElement.style.textAlign = "right"; };
+    if (textAlignJustifyBtn) textAlignJustifyBtn.onclick = () => { const textElement = getSelectedTextElement(); if (textElement) textElement.style.textAlign = "justify"; };
+
+    [textSizeInput, textColorInput, textSizeUnitInput, textMinSizeInput, textLineHeightInput, textParagraphSpacingInput].filter(Boolean).forEach((control) => {
+        control.addEventListener("input", applyTextStyleFromControls);
+        control.addEventListener("change", applyTextStyleFromControls);
+    });
 }
 
 function ensureTailwindInHtml(htmlText) {
@@ -1006,8 +1328,8 @@ async function loadSelectedRoute() {
         const root = getEditableRoot();
         if (root) {
             stripEditorArtifacts(root);
-            [...root.children].forEach((child) => {
-                if (child instanceof HTMLElement) bindElementDragAndResize(child);
+            root.querySelectorAll("[data-editable='true'], section").forEach((node) => {
+                if (node instanceof HTMLElement) bindElementDragAndResize(node);
             });
         }
         bindCanvasSelectionHandlers();
@@ -1027,6 +1349,78 @@ async function writeTextFile(fileHandle, text) {
     const writable = await fileHandle.createWritable();
     await writable.write(text);
     await writable.close();
+}
+
+async function writeBinaryFile(fileHandle, fileBlob) {
+    const writable = await fileHandle.createWritable();
+    await writable.write(fileBlob);
+    await writable.close();
+}
+
+function sanitizeFilename(name) {
+    return String(name || "image")
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+}
+
+function buildPublicSrcForCurrentRoute(fileName) {
+    const safeFile = String(fileName || "").replace(/^\/+/, "");
+    return `/${PUBLIC_UPLOADS_DIR}/${safeFile}`;
+}
+
+async function saveUploadedImageToPublic(file) {
+    if (!connectedRootHandle) throw new Error("Root not connected");
+    if (!(await hasRootPermission(connectedRootHandle))) {
+        throw new Error("Permission denied");
+    }
+    const publicDirHandle = await resolveDirectoryHandle(connectedRootHandle, PUBLIC_UPLOADS_DIR, true);
+    const extFromName = (file.name.split(".").pop() || "").toLowerCase();
+    const mimeExtMap = {
+        "image/jpeg": "jpg",
+        "image/jpg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+        "image/gif": "gif",
+        "image/svg+xml": "svg",
+        "image/avif": "avif",
+    };
+    const ext = extFromName || mimeExtMap[file.type] || "png";
+    const baseRaw = file.name.includes(".") ? file.name.slice(0, file.name.lastIndexOf(".")) : file.name;
+    const base = sanitizeFilename(baseRaw) || "image";
+    const stampedName = `${base}-${Date.now()}.${ext}`;
+    const fileHandle = await publicDirHandle.getFileHandle(stampedName, { create: true });
+    await writeBinaryFile(fileHandle, file);
+    return stampedName;
+}
+
+function queuePendingImageUpload(file, targetImage) {
+    if (!(targetImage instanceof HTMLImageElement)) return;
+    const uploadId = `upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const previewUrl = URL.createObjectURL(file);
+    pendingImageUploads.set(uploadId, { file, previewUrl });
+    targetImage.dataset.pendingUploadId = uploadId;
+    targetImage.src = previewUrl;
+}
+
+async function flushPendingImageUploads(root) {
+    if (!root || !(root instanceof HTMLElement)) return;
+    const images = root.querySelectorAll("img[data-pending-upload-id]");
+    for (const image of images) {
+        if (!(image instanceof HTMLImageElement)) continue;
+        const uploadId = image.dataset.pendingUploadId || "";
+        if (!uploadId || !pendingImageUploads.has(uploadId)) continue;
+        const pending = pendingImageUploads.get(uploadId);
+        try {
+            const savedFileName = await saveUploadedImageToPublic(pending.file);
+            image.src = buildPublicSrcForCurrentRoute(savedFileName);
+            image.removeAttribute("data-pending-upload-id");
+        } finally {
+            if (pending?.previewUrl) URL.revokeObjectURL(pending.previewUrl);
+            pendingImageUploads.delete(uploadId);
+        }
+    }
 }
 
 async function deleteSelectedRoute() {
